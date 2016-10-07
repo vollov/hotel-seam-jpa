@@ -1,0 +1,15 @@
+<project name="test" default="compile">
+
+  <taskdef resource="net/sf/antcontrib/antlib.xml"/>
+
+  <loadfile property="file" srcfile="deploylist.txt"/>
+
+  <target name="compile">
+    <for param="line" list="${file}" delimiter="${line.separator}">
+      <sequential>
+        <echo>@{line}</echo>
+      </sequential>
+    </for>
+  </target>
+
+</project>

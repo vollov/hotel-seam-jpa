@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="hotel" default="war" basedir=".">
+
+	<taskdef resource="net/sf/antcontrib/antlib.xml" />
+	<loadfile property="jboss-jars" srcfile="jboss-libs.txt" />
+	<loadfile property="tomcat-jars" srcfile="tomcat-libs.txt" />
+
+	<property name="project-name" value="${ant.project.name}" />
+	<property file="build.properties" />
+
+	<property name="war-file-name" value="${project-name}.war" />
+
+	<property name="web-xml-file" value="web/WEB-INF/web.xml" />
+
+	<!-- Testing -->
+	<property name="coverage.dir" value="${seam.dir}/build/coverage" />
+	<property name="test-report.dir" value="${seam.dir}/test-output" />
+	<property name="eejb.conf.dir" value="${seam.dir}/bootstrap" />
+	<property name="src.schema.dir" value="${seam.dir}/src/main/org/jboss/seam" />
+	<property name="schema.version" value="${version}" />
+	<property name="testng.jar" value="${seam.dir}/lib/testng-jdk15.jar" />
+	<property name="testng.jvmargs" value="-Dfoo" />
+	<property name="javac.debug" value="true" />
+	<property name="javac.deprecation" value="false" />
+
+	<tstamp prefix="build-info">
+		<format property="current-date" pattern="d-MMMM-yyyy" locale="en" />
+		<format property="current-time" pattern="hh:mm:ss a z" locale="en" />
+	</tstamp>
+
+	<target name="clean">
+		<delete dir="${build.dir}" />
+		<delete dir="${test.dir}" />
+		<delete dir="${dist.dir}" />
+		<delete dir="${web.dir}/WEB-INF/lib" />
+		<mkdir dir="${build.dir}/classes" />
+		<mkdir dir="${test.dir}"/>
+		<mkdir dir="${dist.dir}"/>
+		<mkdir dir="${web.dir}/WEB-INF/lib"/>
+	</target>
+
+	<path id="test.classpath">
+		<path path="${test.dir}" />
+		<fileset dir="${seam.dir}/lib/test">
+			<include name="*.jar" />
+		</fileset>
+		<fileset dir="${seam.dir}/lib">
+			<!-- Don't include seam-ui or interop modules -->
+			<exclude name="jboss-seam-ui.jar" />
+			<exclude name="jboss-seam-wicket.jar" />
+			<exclude name="interop/**/*" />
+			<exclude name="gen/**/*" />
+			<exclude name="src/**/*" />
+		</fileset>
+		<path path="${eejb.conf.dir}" />
+		<path location="${seam.dir}/src/test/resources/log4j.xml" />
+	</path>
+
+	<path id="build.classpath">
+		<fileset dir="${seam.dir}/lib">
+			<include name="*.jar" />
+
+			<include name="jboss-seam-wicket.jar" />
+			<exclude name="jboss-seam-debug.jar" />
+			<exclude name="jboss-seam-ui.jar" />
+			<exclude name="jboss-seam-mail.jar" />
+			<exclude name="jboss-seam-pdf.jar" />
+			<exclude name="jboss-seam-excel.jar" />
+			<exclude name="jboss-seam-rss.jar" />
+		</fileset>
+	</path>
+
+	<target name="compile">
+		<javac includeantruntime="false" destdir="${build.dir}/classes">
+			<src path="${src.dir}" />
+			<classpath refid="build.classpath" />
+		</javac>
+
+		<copy todir="${build.dir}/classes">
+			<fileset dir="${resources.dir}">
+				<exclude name="**/*.java" />
+			</fileset>
+		</copy>
+	</target>
+
+	<target name="war" depends="clean, compile">
+		<mkdir dir="${dist.dir}" />
+		<delete file="${dist.dir}/${war-file-name}" />
+		<war warfile="${dist.dir}/${war-file-name}" webxml="${web-xml-file}">
+			<classes dir="${build.dir}/classes" />
+			<fileset dir="${web.dir}">
+				<!-- Need to exclude it since webxml is an attribute of the war tag above -->
+				<exclude name="WEB-INF/web.xml" />
+			</fileset>
+			<manifest>
+				<attribute name="Built-By" value="${builder}" />
+				<attribute name="Built-On" value="${build-info.current-date}" />
+				<attribute name="Built-At" value="${build-info.current-time}" />
+			</manifest>
+		</war>
+	</target>
+
+	<target name="deploy" depends="war">
+		<copy file="${dist.dir}/${war-file-name}" todir="${deploy.dir}" />
+		<touch file="${deploy.dir}/${war-file-name}.dodeploy" />
+	</target>
+
+	<target name="init" depends="deploy">
+		<echo message="Building and deploying ${project-name}" />
+	</target>
+
+	<target name="tomcat.env" depends="clean">
+		<for param="line" list="${tomcat-jars}" delimiter="${line.separator}">
+			<sequential>
+				<echo>copying @{line}</echo>
+				<copy file="${seam.dir}/lib/@{line}" todir="${web.dir}/WEB-INF/lib" />
+			</sequential>
+		</for>
+	</target>
+	
+	<target name="jboss.env" depends="clean">
+			<for param="line" list="${jboss-jars}" delimiter="${line.separator}">
+				<sequential>
+					<echo>copying @{line}</echo>
+					<copy file="${seam.dir}/lib/@{line}" todir="${web.dir}/WEB-INF/lib" />
+				</sequential>
+			</for>
+	</target>
+	<!-- #################### TEST TARGETS ##################### -->
+
+	<target name="buildtest" depends="compiletest">
+		<copy todir="${test.dir}">
+			<fileset dir="${test.resources.dir}">
+				<exclude name="**/*.java" />
+			</fileset>
+		</copy>
+
+		<copy todir="${test.dir}">
+			<fileset dir="${web.dir}">
+				<include name="**/*.xml" />
+			</fileset>
+		</copy>
+	</target>
+
+	<target name="compiletest" depends="clean">
+		<mkdir dir="${test.dir}" />
+		<javac includeantruntime="false" classpathref="build.classpath" destdir="${test.dir}" debug="${javac.debug}" deprecation="${javac.deprecation}" nowarn="on">
+			<src path="${src.dir}" />
+		</javac>
+	</target>
+
+	<target name="test" depends="buildtest" description="Run the tests">
+		<condition property="incompatible.jdk">
+			<and>
+				<equals arg1="${ant.java.version}" arg2="1.6"/>
+				<not>
+					<available classname="javax.xml.bind.JAXB"/>
+				</not>
+			</and>
+		</condition>
+		<fail if="incompatible.jdk">You are using an incompatible JDK 6. Please use Sun JDK 6 Update 4 (1.6.0_04) or newer or use Open JDK 6.</fail>
+		<taskdef resource="testngtasks" classpathref="build.classpath" />
+		<testng outputdir="${test-report.dir}">
+			<jvmarg line="-Xmx800M" />
+			<jvmarg line="-Djava.awt.headless=true" />
+			<jvmarg line="-Demma.coverage.out.file=${coverage.ec}" />
+			<jvmarg line="-Djava.endorsed.dirs=${endorsed.dir}" />
+			<!--added for JDK6 compatibility with JBoss embedded-->
+			<jvmarg line="-Dsun.lang.ClassLoader.allowArraySyntax=true"/>
+			<jvmarg line="${testng.jvmargs}" />
+			<classpath>
+				<path refid="test.classpath" />
+				<!-- <path refid="runtime.emma.path" /> -->
+			</classpath>
+			<xmlfileset dir="${src.dir}" includes="**/testng.xml" />
+		</testng>
+		<echo>You can increase the logging by editing bootstrap/log4j.xml</echo>
+	</target>
+</project>
