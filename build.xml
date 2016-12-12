@@ -39,10 +39,8 @@
 		<delete>
 		    <fileset dir="${bin.dir}" includes="**/*"/>
 		</delete>
-		<delete>
-			<fileset dir="${dist.dir}" includes="**/*"/>
-		</delete>
 		
+		<delete dir="${dist.dir}" />
 		<delete dir="${build.dir}" />
 		<delete dir="${test.dir}" />
 		<mkdir dir="${build.dir}/classes" />
