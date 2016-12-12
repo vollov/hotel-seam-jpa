@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project name="hotel" default="war" basedir=".">
+<project name="hotel" default="init" basedir=".">
 
 	<taskdef resource="net/sf/antcontrib/antlib.xml" />
 	<loadfile property="jboss-jars" srcfile="jboss-libs.txt" />
+	<!--
 	<loadfile property="tomcat-jars" srcfile="tomcat-libs.txt" />
-
+	-->
 	<property name="project-name" value="${ant.project.name}" />
 	<property file="build.properties" />
 
@@ -29,14 +30,23 @@
 	</tstamp>
 
 	<target name="clean">
+		<delete>
+		   <fileset dir="${web.dir}/WEB-INF/lib">
+		      <include name="*.jar"/>
+		   </fileset>
+		</delete>
+		
+		<delete>
+		    <fileset dir="${bin.dir}" includes="**/*"/>
+		</delete>
+		<delete>
+			<fileset dir="${dist.dir}" includes="**/*"/>
+		</delete>
+		
 		<delete dir="${build.dir}" />
 		<delete dir="${test.dir}" />
-		<delete dir="${dist.dir}" />
-		<delete dir="${web.dir}/WEB-INF/lib" />
 		<mkdir dir="${build.dir}/classes" />
 		<mkdir dir="${test.dir}"/>
-		<mkdir dir="${dist.dir}"/>
-		<mkdir dir="${web.dir}/WEB-INF/lib"/>
 	</target>
 
 	<path id="test.classpath">
@@ -83,7 +93,24 @@
 		</copy>
 	</target>
 
-	<target name="war" depends="clean, compile">
+	<!-- prepare lib for jboss -->
+	<target name="jbosslib">
+
+	    <for param="line" list="${jboss-jars}" delimiter="${line.separator}">
+	      <sequential>
+	        <echo>copying ${seam.dir}/lib/@{line}</echo>
+	      	<copy file="${seam.dir}/lib/@{line}" todir="${web.dir}/WEB-INF/lib"/>
+	      </sequential>
+	    </for>
+		
+		<copy todir="${web.dir}/WEB-INF/lib">
+			<fileset dir="${resources.dir}">
+				<exclude name="**/*.java" />
+			</fileset>
+		</copy>
+	</target>
+				
+	<target name="war" depends="clean, compile, jbosslib">
 		<mkdir dir="${dist.dir}" />
 		<delete file="${dist.dir}/${war-file-name}" />
 		<war warfile="${dist.dir}/${war-file-name}" webxml="${web-xml-file}">
@@ -105,27 +132,11 @@
 		<touch file="${deploy.dir}/${war-file-name}.dodeploy" />
 	</target>
 
+	<!-- build for jboss by default -->
 	<target name="init" depends="deploy">
 		<echo message="Building and deploying ${project-name}" />
 	</target>
 
-	<target name="tomcat.env" depends="clean">
-		<for param="line" list="${tomcat-jars}" delimiter="${line.separator}">
-			<sequential>
-				<echo>copying @{line}</echo>
-				<copy file="${seam.dir}/lib/@{line}" todir="${web.dir}/WEB-INF/lib" />
-			</sequential>
-		</for>
-	</target>
-	
-	<target name="jboss.env" depends="clean">
-			<for param="line" list="${jboss-jars}" delimiter="${line.separator}">
-				<sequential>
-					<echo>copying @{line}</echo>
-					<copy file="${seam.dir}/lib/@{line}" todir="${web.dir}/WEB-INF/lib" />
-				</sequential>
-			</for>
-	</target>
 	<!-- #################### TEST TARGETS ##################### -->
 
 	<target name="buildtest" depends="compiletest">

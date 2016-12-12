@@ -2,7 +2,7 @@
 
   <taskdef resource="net/sf/antcontrib/antlib.xml"/>
 
-  <loadfile property="file" srcfile="deploylist.txt"/>
+  <loadfile property="file" srcfile="jboss-libs.txt"/>
 
   <target name="compile">
     <for param="line" list="${file}" delimiter="${line.separator}">
